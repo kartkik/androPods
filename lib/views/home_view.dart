@@ -11,7 +11,37 @@ class BluetoothDetector extends StatefulWidget {
   _BluetoothDetectorState createState() => _BluetoothDetectorState();
 }
 
-class _BluetoothDetectorState extends State<BluetoothDetector> {
+class _BluetoothDetectorState extends State<BluetoothDetector>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _animation; // 🔹 Declare the animation
+
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _animationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _animationController.reverse();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
   List<BluetoothDevice> devices = [];
 
   int selectedIndex = 0;
@@ -34,6 +64,16 @@ class _BluetoothDetectorState extends State<BluetoothDetector> {
       default:
         return _buildHomePage();
     }
+  }
+
+  double _volume = 0.5; // Initial volume level (0.0 to 1.0)
+
+  void _increaseVolume() {
+    setState(() {
+      _volume =
+          (_volume + 0.1).clamp(0.0, 1.0); // Increase volume but cap at 1.0
+      _animationController.forward(from: 0.0); // Play pulse animation
+    });
   }
 
   // Home page content
@@ -151,18 +191,67 @@ class _BluetoothDetectorState extends State<BluetoothDetector> {
                   GestureDetector(
                     onVerticalDragUpdate: (details) {
                       if (details.primaryDelta! < -10) {
-                        // Detects swipe up
                         _increaseVolume();
                       }
                     },
-                    child: Container(
-                      width: 80,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: BorderRadius.circular(
-                            20), // Optional: Rounded corners
-                      ),
+                    child: AnimatedBuilder(
+                      animation: _animation,
+                      builder: (context, child) {
+                        return Stack(
+                          alignment: Alignment.bottomCenter,
+                          children: [
+                            // Main volume bar background
+                            Container(
+                              width: 80,
+                              height: 180,
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+
+                            // Volume level indicator
+                            AnimatedContainer(
+                              duration: Duration(milliseconds: 300),
+                              width: 80,
+                              height: 180 * _volume,
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade800,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+
+                            // Pulse animation overlay
+                            Container(
+                              width: 80 + (_animation.value * 20),
+                              height: 180,
+                              decoration: BoxDecoration(
+                                color: Colors.white
+                                    .withOpacity(0.3 * (1 - _animation.value)),
+                                borderRadius: BorderRadius.circular(
+                                    20 + (_animation.value * 5)),
+                              ),
+                            ),
+
+                            // Volume percentage text
+                            Positioned(
+                              bottom: 10,
+                              child: AnimatedOpacity(
+                                duration: Duration(milliseconds: 300),
+                                opacity: 1.0,
+                                child: Text(
+                                  '${(_volume * 100).toInt()}%',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -413,14 +502,6 @@ class _BluetoothDetectorState extends State<BluetoothDetector> {
     });
   }
 
-  @override
-  void initState() {
-    super.initState();
-    requestPermissions();
-    scanForDevices();
-    _getCurrentVolume();
-  }
-
   /// Request necessary Bluetooth permissions
   Future<void> requestPermissions() async {
     await Permission.bluetooth.request();
@@ -437,15 +518,15 @@ class _BluetoothDetectorState extends State<BluetoothDetector> {
   }
 
   // Increase volume on swipe up
-  void _increaseVolume() async {
-    if (_currentVolume < 1.0) {
-      double newVolume = (_currentVolume + 0.1).clamp(0.0, 1.0);
-      await FlutterVolumeController.setVolume(newVolume);
-      setState(() {
-        _currentVolume = newVolume;
-      });
-    }
-  }
+  // void _increaseVolume() async {
+  //   if (_currentVolume < 1.0) {
+  //     double newVolume = (_currentVolume + 0.1).clamp(0.0, 1.0);
+  //     await FlutterVolumeController.setVolume(newVolume);
+  //     setState(() {
+  //       _currentVolume = newVolume;
+  //     });
+  //   }
+  // }
 
   /// Scan for ALL Bluetooth devices
   void scanForDevices() async {
