@@ -14,7 +14,7 @@ class BluetoothDetector extends StatefulWidget {
 class _BluetoothDetectorState extends State<BluetoothDetector>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  late Animation<double> _animation; // 🔹 Declare the animation
+  late Animation<double> _animation;
 
   @override
   void initState() {
@@ -46,7 +46,7 @@ class _BluetoothDetectorState extends State<BluetoothDetector>
 
   int selectedIndex = 0;
   int batteryLevel = 75; // Example battery level
-  double _currentVolume = 0.5; // Default volume level
+  double currentVolume = 0.5; // Default volume level
 
   bool isPlaying = false;
   double progress = 0.3; // Default progress (30%)
@@ -178,87 +178,111 @@ class _BluetoothDetectorState extends State<BluetoothDetector>
           ),
         ),
 
+        // Replace the existing volume control section with this code
         Row(
           children: [
             Padding(
-              padding: EdgeInsets.only(
-                  left: 25,
-                  bottom: 10,
-                  right: 10,
-                  top: 10), // Added left padding
+              padding:
+                  EdgeInsets.only(left: 25, bottom: 10, right: 10, top: 10),
               child: Column(
                 children: [
-                  GestureDetector(
-                    onVerticalDragUpdate: (details) {
-                      if (details.primaryDelta! < -10) {
-                        _increaseVolume();
-                      }
-                    },
-                    child: AnimatedBuilder(
-                      animation: _animation,
-                      builder: (context, child) {
-                        return Stack(
-                          alignment: Alignment.bottomCenter,
-                          children: [
-                            // Main volume bar background
-                            Container(
-                              width: 80,
-                              height: 180,
+                  // Wrap the entire volume control in a fixed size container
+                  SizedBox(
+                    width: 80,
+                    height: 180,
+                    child: GestureDetector(
+                      onTapUp: (details) {
+                        // Calculate position relative to the widget's height
+                        final RenderBox box =
+                            context.findRenderObject() as RenderBox;
+                        final position =
+                            box.globalToLocal(details.globalPosition);
+                        final percentage = 1.0 - (position.dy / 180);
+
+                        // Set volume directly to the tapped position
+                        setState(() {
+                          _volume = percentage.clamp(0.0, 1.0);
+                        });
+                      },
+                      onVerticalDragUpdate: (details) {
+                        if (details.primaryDelta! < -10) {
+                          _increaseVolume();
+                        }
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragStart: (_) {},
+                      child: Stack(
+                        alignment: Alignment.bottomCenter,
+                        children: [
+                          // Main volume bar background (fixed size)
+                          Positioned.fill(
+                            child: Container(
                               decoration: BoxDecoration(
                                 color: Colors.blue,
                                 borderRadius: BorderRadius.circular(20),
                               ),
                             ),
+                          ),
 
-                            // Volume level indicator
-                            AnimatedContainer(
+                          // Volume level indicator (fixed width, animated height)
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: AnimatedContainer(
                               duration: Duration(milliseconds: 300),
-                              width: 80,
                               height: 180 * _volume,
                               decoration: BoxDecoration(
                                 color: Colors.blue.shade800,
                                 borderRadius: BorderRadius.circular(20),
                               ),
                             ),
+                          ),
 
-                            // Pulse animation overlay
-                            Container(
-                              width: 80 + (_animation.value * 20),
-                              height: 180,
-                              decoration: BoxDecoration(
-                                color: Colors.white
-                                    .withOpacity(0.3 * (1 - _animation.value)),
-                                borderRadius: BorderRadius.circular(
-                                    20 + (_animation.value * 5)),
+                          // Pulse animation overlay in a separate overlay widget
+                          Positioned.fill(
+                            child: Builder(
+                              builder: (context) {
+                                return AnimatedBuilder(
+                                  animation: _animation,
+                                  builder: (context, child) {
+                                    return Opacity(
+                                      opacity: 0.3 * (1 - _animation.value),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                              20 + (_animation.value * 5)),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+
+                          // Volume percentage text
+                          Positioned(
+                            bottom: 10,
+                            child: Text(
+                              '${(_volume * 100).toInt()}%',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-
-                            // Volume percentage text
-                            Positioned(
-                              bottom: 10,
-                              child: AnimatedOpacity(
-                                duration: Duration(milliseconds: 300),
-                                opacity: 1.0,
-                                child: Text(
-                                  '${(_volume * 100).toInt()}%',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Black Container on the right
+            // Black Container on the right (no animation will affect this now)
             Container(
               height: 180,
               width: 260,
@@ -361,6 +385,7 @@ class _BluetoothDetectorState extends State<BluetoothDetector>
             )
           ],
         ),
+
         Row(
           mainAxisAlignment:
               MainAxisAlignment.spaceEvenly, // Distributes items evenly
@@ -510,10 +535,10 @@ class _BluetoothDetectorState extends State<BluetoothDetector>
     await Permission.location.request();
   }
 
-  void _getCurrentVolume() async {
+  void getCurrentVolume() async {
     double? volume = await FlutterVolumeController.getVolume();
     setState(() {
-      _currentVolume = volume!;
+      currentVolume = volume!;
     });
   }
 
